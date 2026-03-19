@@ -1,0 +1,15 @@
+.rating {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.rating i {
+  font-size: 1rem;
+}
+
+.rating-text {
+  margin-left: 0.5rem;
+  color: #666;
+  font-size: 0.9rem;
+}

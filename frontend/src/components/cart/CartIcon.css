@@ -1,0 +1,25 @@
+.cart-icon {
+  position: relative;
+  color: #666;
+  text-decoration: none;
+  font-size: 1.25rem;
+  transition: color 0.3s ease;
+}
+
+.cart-icon:hover {
+  color: #667eea;
+}
+
+.cart-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #e74c3c;
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 50%;
+  min-width: 18px;
+  text-align: center;
+  font-weight: 600;
+}

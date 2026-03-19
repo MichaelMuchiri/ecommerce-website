@@ -1,0 +1,74 @@
+.stripe-payment {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.stripe-payment h3 {
+  font-size: 1.25rem;
+  color: #333;
+  margin-bottom: 1.5rem;
+}
+
+.stripe-form {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.card-element-container {
+  padding: 1rem;
+  border: 2px solid #e1e1e1;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  background: white;
+}
+
+.card-element-container:hover {
+  border-color: #667eea;
+}
+
+.payment-error {
+  color: #e74c3c;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #fdeded;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.pay-button {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.pay-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+.pay-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.secure-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  color: #27ae60;
+  font-size: 0.9rem;
+}
+
+.secure-badge i {
+  font-size: 1rem;
+}
