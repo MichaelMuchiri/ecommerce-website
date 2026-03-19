@@ -17,7 +17,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/auth', require('./src/routes/authRoutes'));
 
 // MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce';
@@ -38,7 +38,7 @@ mongoose.connect(MONGODB_URI)
   });
 
 // Import models
-const { User, Product, Category, Order, Cart, Review } = require('./models');
+const { User, Product, Category, Order, Cart, Review } = require('./src/models');
 
 // Test route to create a test user
 app.get('/api/test/create-test-user', async (req, res) => {
