@@ -15,15 +15,27 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+//MongoDB Connection
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.MONGODB_URL);
+    console.log('✅ Connected to MongoDB');
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error);
+    process.exit(1);
+  }
+};
+
+connectDB();
 
 // Routes
 app.use('/api/auth', require('./src/routes/authRoutes'));
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ecommerce';
+const MONGODB_URI = process.env.MONGODB_URL || 'mongodb://localhost:27017/ecommerce';
 const PORT = process.env.PORT || 5000;
 
-mongoose.connect(MONGODB_URI)
+mongoose.connect(MONGODB_URL)
   .then(() => {
     console.log('✅ Connected to MongoDB');
     
