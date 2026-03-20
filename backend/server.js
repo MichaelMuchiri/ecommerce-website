@@ -32,7 +32,7 @@ connectDB();
 app.use('/api/auth', require('./src/routes/authRoutes'));
 
 // MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URL || 'mongodb://localhost:27017/ecommerce';
+const MONGODB_URL = process.env.MONGODB_URL || 'mongodb://localhost:27017/ecommerce';
 const PORT = process.env.PORT || 5000;
 
 mongoose.connect(MONGODB_URL)
