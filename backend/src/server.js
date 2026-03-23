@@ -43,7 +43,7 @@ const connectDB = async () => {
 connectDB();
 
 // Routes
-app.use('/api/auth', require('./src/routes/authRoutes'));
+app.use('/api/auth', require('./routes/authRoutes'));
 
 // MongoDB connection
 const MONGODB_URL = process.env.MONGODB_URL || 'mongodb://localhost:27017/ecommerce';
@@ -64,7 +64,7 @@ mongoose.connect(MONGODB_URL)
   });
 
 // Import models
-const { User, Product, Category, Order, Cart, Review } = require('./src/models');
+const { User, Product, Category, Order, Cart, Review } = require('./models');
 
 // Test route to create a test user
 app.get('/api/test/create-test-user', async (req, res) => {
