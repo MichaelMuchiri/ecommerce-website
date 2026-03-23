@@ -15,6 +15,20 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// test
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Welcome to the E-commerce API',
+    status:'success'
+    ,endpoint: {
+      auth: '/api/auth',
+      products: '/api/products',
+      categories: '/api/categories',
+      orders: '/api/orders'
+    }
+  });
+});
+
 //MongoDB Connection
 const connectDB = async () => {
   try {
