@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 
 
 // CHANGE THIS URL TO YOUR RENDER BACKEND URL
-const API_URL = 'https://ecommerce-api-btlv.onrender.com/api';
+const API_URL = 'https://ecommerce-api-btlv.onrender.com/api/';
 // For local development, use: http://localhost:5000/api
 
 // Log the API URL for debugging
