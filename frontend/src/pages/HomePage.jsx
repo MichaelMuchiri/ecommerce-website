@@ -65,24 +65,24 @@ const HomePage = () => {
   const testimonials = [
     {
       id: 1,
-      name: 'Sarah Johnson',
-      avatar: 'SJ',
+      name: 'Sarah Kinya',
+      avatar: 'SK',
       rating: 5,
       comment: 'Amazing shopping experience! Fast delivery and excellent product quality.',
       date: '2 days ago'
     },
     {
       id: 2,
-      name: 'Michael Chen',
-      avatar: 'MC',
+      name: 'Emmanuel Kiptarus',
+      avatar: 'EK',
       rating: 5,
       comment: 'Best prices I could find anywhere. Will definitely shop here again!',
       date: '1 week ago'
     },
     {
       id: 3,
-      name: 'Emily Rodriguez',
-      avatar: 'ER',
+      name: 'Emily Muchiri',
+      avatar: 'EM',
       rating: 4,
       comment: 'Great customer service. They helped me with my order questions immediately.',
       date: '2 weeks ago'

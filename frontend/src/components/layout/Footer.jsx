@@ -63,11 +63,11 @@ const Footer = () => {
             <ul className="contact-info">
               <li>
                 <i className="fas fa-map-marker-alt"></i>
-                <span>123 Commerce St, New York, NY 10001</span>
+                <span>123 Commerce St, Nairobi, Kenya</span>
               </li>
               <li>
                 <i className="fas fa-phone"></i>
-                <span>+1 (800) 123-4567</span>
+                <span>+254757175911</span>
               </li>
               <li>
                 <i className="fas fa-envelope"></i>

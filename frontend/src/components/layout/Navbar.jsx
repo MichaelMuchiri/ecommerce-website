@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
 import './Navbar.css';
-import CartIcon from '../cart/CartIcon';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const { itemCount } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -26,13 +27,9 @@ const Navbar = () => {
           
           {isAuthenticated ? (
             <>
-              <Link to="/dashboard" className="nav-link">
-                Dashboard
-              </Link>
+              <Link to="/dashboard" className="nav-link">Dashboard</Link>
               {user?.role === 'admin' && (
-                <Link to="/admin" className="nav-link admin-link">
-                  Admin
-                </Link>
+                <Link to="/admin" className="nav-link">Admin</Link>
               )}
               <button onClick={handleLogout} className="nav-link logout-btn">
                 Logout
@@ -41,13 +38,14 @@ const Navbar = () => {
           ) : (
             <>
               <Link to="/login" className="nav-link">Login</Link>
-              <Link to="/register" className="nav-link register-btn">
-                Register
-              </Link>
+              <Link to="/register" className="nav-link">Register</Link>
             </>
           )}
 
-          <CartIcon />
+          <Link to="/cart" className="cart-link">
+            <i className="fas fa-shopping-cart"></i>
+            {itemCount > 0 && <span className="cart-count">{itemCount}</span>}
+          </Link>
         </div>
       </div>
     </nav>

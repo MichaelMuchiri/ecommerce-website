@@ -1,341 +1,398 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import adminService from '../services/adminService';
-import AdminSidebar from '../components/admin/AdminSidebar';
-import DashboardStats from '../components/admin/DashboardStats';
-import RecentOrdersTable from '../components/admin/RecentOrdersTable';
-import SalesChart from '../components/admin/SalesChart';
-import ProductTable from '../components/admin/ProductTable';
-import ProductForm from '../components/admin/ProductForm';
-import OrderTable from '../components/admin/OrderTable';
-import UserTable from '../components/admin/UserTable';
-import CategoryTable from '../components/admin/CategoryTable';
-import CategoryForm from '../components/admin/CategoryForm';
-import Loader from '../components/common/Loader';
-import toast from 'react-hot-toast';
+import API from '../services/api';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState({});
-  const [recentOrders, setRecentOrders] = useState([]);
-  const [salesData, setSalesData] = useState([]);
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [users, setUsers] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [productForm, setProductForm] = useState({
+    name: '', price: '', description: '', quantity: '', category: '', image: ''
+  });
 
-  // Redirect if not admin
   useEffect(() => {
-    if (user && user.role !== 'admin') {
-      navigate('/');
-    }
-  }, [user, navigate]);
-
-  // Load dashboard stats
-  useEffect(() => {
-    fetchDashboardStats();
+    fetchStats();
+    fetchProducts();
+    fetchOrders();
+    fetchUsers();
   }, []);
 
-  const fetchDashboardStats = async () => {
+  const fetchStats = async () => {
     try {
-      setLoading(true);
-      const response = await adminService.getDashboardStats();
-      setStats(response.data.stats);
-      setRecentOrders(response.data.recentOrders);
-      setSalesData(response.data.salesData);
+      const response = await API.get('/admin/stats');
+      setStats(response.data.data);
     } catch (error) {
-      toast.error('Failed to load dashboard stats');
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await API.get('/admin/products');
+      setProducts(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+    }
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const response = await API.get('/admin/orders');
+      setOrders(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await API.get('/admin/users');
+      setUsers(response.data.data);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
+
+  // Image upload handler
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, GIF, WebP)');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('image', file);
+
+    setUploading(true);
+    try {
+      const response = await API.post('/admin/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (response.data.success) {
+        setProductForm({ ...productForm, image: response.data.imageUrl });
+        alert('Image uploaded successfully!');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editingProduct) {
+        await API.put(`/admin/products/${editingProduct.id}`, productForm);
+        alert('Product updated!');
+      } else {
+        await API.post('/admin/products', productForm);
+        alert('Product created!');
+      }
+      setShowProductForm(false);
+      setEditingProduct(null);
+      setProductForm({ name: '', price: '', description: '', quantity: '', category: '', image: '' });
+      fetchProducts();
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to save product');
     } finally {
       setLoading(false);
     }
   };
 
-  // Product Management
-  const fetchProducts = async () => {
-    try {
-      setProductsLoading(true);
-      const response = await adminService.getProducts();
-      setProducts(response.data);
-    } catch (error) {
-      toast.error('Failed to load products');
-    } finally {
-      setProductsLoading(false);
-    }
-  };
-
-  const handleCreateProduct = async (productData) => {
-    try {
-      await adminService.createProduct(productData);
-      toast.success('Product created successfully');
-      navigate('/admin/products');
-      fetchProducts();
-    } catch (error) {
-      toast.error('Failed to create product');
-    }
-  };
-
-  const handleUpdateProduct = async (id, productData) => {
-    try {
-      await adminService.updateProduct(id, productData);
-      toast.success('Product updated successfully');
-      navigate('/admin/products');
-      fetchProducts();
-    } catch (error) {
-      toast.error('Failed to update product');
-    }
-  };
-
   const handleDeleteProduct = async (id) => {
-    try {
-      await adminService.deleteProduct(id);
-      toast.success('Product deleted successfully');
-      fetchProducts();
-    } catch (error) {
-      toast.error('Failed to delete product');
+    if (window.confirm('Delete this product?')) {
+      try {
+        await API.delete(`/admin/products/${id}`);
+        alert('Product deleted');
+        fetchProducts();
+      } catch (error) {
+        alert('Failed to delete product');
+      }
     }
   };
 
-  // Order Management
-  const fetchOrders = async () => {
+  const handleOrderStatus = async (id, status) => {
     try {
-      setOrdersLoading(true);
-      const response = await adminService.getOrders();
-      setOrders(response.data);
-    } catch (error) {
-      toast.error('Failed to load orders');
-    } finally {
-      setOrdersLoading(false);
-    }
-  };
-
-  const handleUpdateOrderStatus = async (id, statusData) => {
-    try {
-      await adminService.updateOrderStatus(id, statusData);
-      toast.success('Order status updated');
+      await API.put(`/admin/orders/${id}`, { status });
+      alert('Order status updated');
       fetchOrders();
-      fetchDashboardStats(); // Refresh stats
     } catch (error) {
-      toast.error('Failed to update order status');
+      alert('Failed to update status');
     }
   };
 
-  // User Management
-  const fetchUsers = async () => {
+  const handleUserRole = async (id, role) => {
     try {
-      setUsersLoading(true);
-      const response = await adminService.getUsers();
-      setUsers(response.data);
-    } catch (error) {
-      toast.error('Failed to load users');
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
-  const handleUpdateUserRole = async (id, role) => {
-    try {
-      await adminService.updateUserRole(id, role);
-      toast.success('User role updated');
+      await API.put(`/admin/users/${id}`, { role });
+      alert('User role updated');
       fetchUsers();
     } catch (error) {
-      toast.error('Failed to update user role');
+      alert('Failed to update role');
     }
   };
 
   const handleDeleteUser = async (id) => {
-    try {
-      await adminService.deleteUser(id);
-      toast.success('User deleted');
-      fetchUsers();
-      fetchDashboardStats(); // Refresh stats
-    } catch (error) {
-      toast.error('Failed to delete user');
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await API.delete(`/admin/users/${id}`);
+        alert('User deleted successfully');
+        fetchUsers();
+      } catch (error) {
+        alert('Failed to delete user');
+      }
     }
   };
 
-  // Category Management
-  const fetchCategories = async () => {
-    try {
-      setCategoriesLoading(true);
-      const response = await adminService.getCategories();
-      setCategories(response.data);
-    } catch (error) {
-      toast.error('Failed to load categories');
-    } finally {
-      setCategoriesLoading(false);
-    }
+  const editProduct = (product) => {
+    setEditingProduct(product);
+    setProductForm({
+      name: product.name,
+      price: product.price,
+      description: product.description || '',
+      quantity: product.quantity,
+      category: product.category || '',
+      image: product.image || ''
+    });
+    setShowProductForm(true);
   };
-
-  const handleCreateCategory = async (categoryData) => {
-    try {
-      await adminService.createCategory(categoryData);
-      toast.success('Category created successfully');
-      navigate('/admin/categories');
-      fetchCategories();
-      fetchDashboardStats(); // Refresh stats
-    } catch (error) {
-      toast.error('Failed to create category');
-    }
-  };
-
-  const handleUpdateCategory = async (id, categoryData) => {
-    try {
-      await adminService.updateCategory(id, categoryData);
-      toast.success('Category updated successfully');
-      navigate('/admin/categories');
-      fetchCategories();
-    } catch (error) {
-      toast.error('Failed to update category');
-    }
-  };
-
-  const handleDeleteCategory = async (id) => {
-    try {
-      await adminService.deleteCategory(id);
-      toast.success('Category deleted');
-      fetchCategories();
-      fetchDashboardStats(); // Refresh stats
-    } catch (error) {
-      toast.error('Failed to delete category');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="admin-loading">
-        <Loader />
-      </div>
-    );
-  }
 
   return (
-    <div className="admin-dashboard">
-      <AdminSidebar />
-      
-      <div className="admin-content">
-        <div className="content-header">
-          <h1>Welcome back, {user?.name}!</h1>
-          <p>Here's what's happening with your store today.</p>
-        </div>
+    <div className="admin-container">
+      <div className="admin-sidebar">
+        <h2>Admin Panel</h2>
+        <nav>
+          <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+            <i className="fas fa-chart-line"></i> Dashboard
+          </button>
+          <button className={activeTab === 'products' ? 'active' : ''} onClick={() => setActiveTab('products')}>
+            <i className="fas fa-box"></i> Products
+          </button>
+          <button className={activeTab === 'orders' ? 'active' : ''} onClick={() => setActiveTab('orders')}>
+            <i className="fas fa-shopping-cart"></i> Orders
+          </button>
+          <button className={activeTab === 'users' ? 'active' : ''} onClick={() => setActiveTab('users')}>
+            <i className="fas fa-users"></i> Users
+          </button>
+        </nav>
+      </div>
 
-        <Routes>
-          {/* Dashboard Home */}
-          <Route
-            index
-            element={
-              <>
-                <DashboardStats stats={stats} />
-                <SalesChart data={salesData} />
-                <RecentOrdersTable orders={recentOrders} />
-              </>
-            }
-          />
+      <div className="admin-main">
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div>
+            <h1>Dashboard Overview</h1>
+            <div className="stats-grid">
+              <div className="stat-card">
+                <h3>${stats.totalRevenue?.toFixed(2) || 0}</h3>
+                <p>Total Revenue</p>
+              </div>
+              <div className="stat-card">
+                <h3>{stats.totalOrders || 0}</h3>
+                <p>Total Orders</p>
+              </div>
+              <div className="stat-card">
+                <h3>{stats.totalProducts || 0}</h3>
+                <p>Total Products</p>
+              </div>
+              <div className="stat-card">
+                <h3>{stats.totalUsers || 0}</h3>
+                <p>Total Users</p>
+              </div>
+            </div>
+          </div>
+        )}
 
-          {/* Product Routes */}
-          <Route
-            path="products"
-            element={
-              <ProductTable
-                products={products}
-                onEdit={(product) => navigate(`/admin/products/edit/${product._id}`)}
-                onDelete={handleDeleteProduct}
-                loading={productsLoading}
-              />
-            }
-          />
-          <Route
-            path="products/new"
-            element={
-              <ProductForm
-                categories={categories}
-                onSubmit={handleCreateProduct}
-                loading={productsLoading}
-              />
-            }
-          />
-          <Route
-            path="products/edit/:id"
-            element={
-              <ProductForm
-                product={products.find(p => p._id === window.location.pathname.split('/').pop())}
-                categories={categories}
-                onSubmit={(data) => handleUpdateProduct(
-                  window.location.pathname.split('/').pop(),
-                  data
-                )}
-                loading={productsLoading}
-              />
-            }
-          />
+        {/* Products Tab */}
+        {activeTab === 'products' && (
+          <div>
+            <div className="tab-header">
+              <h1>Products</h1>
+              <button className="add-btn" onClick={() => { setShowProductForm(true); setEditingProduct(null); setProductForm({ name: '', price: '', description: '', quantity: '', category: '', image: '' }); }}>
+                + Add Product
+              </button>
+            </div>
 
-          {/* Order Routes */}
-          <Route
-            path="orders"
-            element={
-              <OrderTable
-                orders={orders}
-                onUpdateStatus={handleUpdateOrderStatus}
-                loading={ordersLoading}
-              />
-            }
-          />
+            {showProductForm && (
+              <div className="product-form-modal">
+                <form onSubmit={handleProductSubmit}>
+                  <h3>{editingProduct ? 'Edit Product' : 'New Product'}</h3>
+                  <input type="text" placeholder="Product Name" value={productForm.name} onChange={(e) => setProductForm({...productForm, name: e.target.value})} required />
+                  <input type="number" placeholder="Price" value={productForm.price} onChange={(e) => setProductForm({...productForm, price: e.target.value})} required />
+                  <textarea placeholder="Description" value={productForm.description} onChange={(e) => setProductForm({...productForm, description: e.target.value})} />
+                  <input type="number" placeholder="Quantity" value={productForm.quantity} onChange={(e) => setProductForm({...productForm, quantity: e.target.value})} required />
+                  <input type="text" placeholder="Category" value={productForm.category} onChange={(e) => setProductForm({...productForm, category: e.target.value})} />
+                  
+                  {/* IMAGE UPLOAD BUTTON - Replaces the URL input */}
+                  <div className="form-group">
+                    <label>Product Image</label>
+                    <input
+                      type="file"
+                      id="productImageUpload"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('productImageUpload').click()}
+                      className="upload-btn"
+                      disabled={uploading}
+                    >
+                      {uploading ? '📤 Uploading...' : '📁 Select Image from Computer'}
+                    </button>
+                    {productForm.image && (
+                      <div className="image-preview">
+                        <img src={productForm.image} alt="Preview" />
+                        <button
+                          type="button"
+                          onClick={() => setProductForm({ ...productForm, image: '' })}
+                          className="remove-image-btn"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                    <small className="upload-hint">Click button to select an image from your computer (JPG, PNG, GIF, WebP, max 5MB)</small>
+                  </div>
 
-          {/* User Routes */}
-          <Route
-            path="users"
-            element={
-              <UserTable
-                users={users}
-                onUpdateRole={handleUpdateUserRole}
-                onDelete={handleDeleteUser}
-                loading={usersLoading}
-              />
-            }
-          />
+                  <div className="form-buttons">
+                    <button type="submit" disabled={loading}>{loading ? 'Saving...' : 'Save'}</button>
+                    <button type="button" onClick={() => { setShowProductForm(false); setEditingProduct(null); }}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            )}
 
-          {/* Category Routes */}
-          <Route
-            path="categories"
-            element={
-              <CategoryTable
-                categories={categories}
-                onEdit={(category) => navigate(`/admin/categories/edit/${category._id}`)}
-                onDelete={handleDeleteCategory}
-                loading={categoriesLoading}
-              />
-            }
-          />
-          <Route
-            path="categories/new"
-            element={
-              <CategoryForm
-                onSubmit={handleCreateCategory}
-                loading={categoriesLoading}
-              />
-            }
-          />
-          <Route
-            path="categories/edit/:id"
-            element={
-              <CategoryForm
-                category={categories.find(c => c._id === window.location.pathname.split('/').pop())}
-                onSubmit={(data) => handleUpdateCategory(
-                  window.location.pathname.split('/').pop(),
-                  data
-                )}
-                loading={categoriesLoading}
-              />
-            }
-          />
-        </Routes>
+            <table className="admin-table">
+              <thead>
+                <tr><th>ID</th><th>Name</th><th>Price</th><th>Stock</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {products.map(p => (
+                  <tr key={p.id}>
+                    <td>{p.id}</td>
+                    <td>{p.name}</td>
+                    <td>${p.price}</td>
+                    <td>{p.quantity}</td>
+                    <td>
+                      <button className="edit-btn" onClick={() => editProduct(p)}>Edit</button>
+                      <button className="delete-btn" onClick={() => handleDeleteProduct(p.id)}>Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Orders Tab */}
+        {activeTab === 'orders' && (
+          <div>
+            <h1>Orders</h1>
+            <table className="admin-table">
+              <thead>
+                <tr><th>ID</th><th>Customer</th><th>Total</th><th>Status</th><th>Date</th></tr>
+              </thead>
+              <tbody>
+                {orders.map(o => (
+                  <tr key={o.id}>
+                    <td>#{o.id}</td>
+                    <td>{o.user_name}<br/><small>{o.user_email}</small></td>
+                    <td>${o.total?.toFixed(2)}</td>
+                    <td>
+                      <select value={o.status} onChange={(e) => handleOrderStatus(o.id, e.target.value)}>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="shipped">Shipped</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
+                    <td className="order-date">{new Date(o.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Users Tab */}
+        {activeTab === 'users' && (
+          <div style={{ color: '#333', background: '#fff' }}>
+            <h1>Users</h1>
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Address</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map(u => (
+                  <tr key={u.id}>
+                    <td>{u.id}</td>
+                    <td><strong>{u.name}</strong></td>
+                    <td>{u.email}</td>
+                    <td>{u.phone || '-'}</td>
+                    <td>
+                      {u.address?.street ? 
+                        `${u.address.street}, ${u.address.city || ''}, ${u.address.country || ''}` : 
+                        '-'
+                      }
+                    </td>
+                    <td>
+                      <select 
+                        value={u.role} 
+                        onChange={(e) => handleUserRole(u.id, e.target.value)} 
+                        disabled={u.email === user?.email}
+                        className="role-select"
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </td>
+                    <td className="user-date">{new Date(u.created_at).toLocaleDateString()}</td>
+                    <td>
+                      {u.email !== user?.email && (
+                        <button 
+                          onClick={() => handleDeleteUser(u.id)} 
+                          className="delete-btn"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

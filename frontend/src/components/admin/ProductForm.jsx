@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ImageUpload from '../common/ImageUpload';
+import API from '../../services/api';
 import './ProductForm.css';
 
 const ProductForm = ({ product, categories, onSubmit, loading }) => {
   const navigate = useNavigate();
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     sku: '',
@@ -15,7 +16,7 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
     category: '',
     brand: '',
     tags: [],
-    images: [],
+    image: '',
     isActive: true,
     isFeatured: false
   });
@@ -33,7 +34,7 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
         category: product.category?._id || product.category || '',
         brand: product.brand || '',
         tags: product.tags || [],
-        images: product.images || [],
+        image: product.image || '',
         isActive: product.isActive !== undefined ? product.isActive : true,
         isFeatured: product.isFeatured || false
       });
@@ -46,71 +47,74 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    // Clear error for this field
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const handleTagsChange = (e) => {
     const tags = e.target.value.split(',').map(tag => tag.trim());
-    setFormData(prev => ({
-      ...prev,
-      tags
-    }));
+    setFormData(prev => ({ ...prev, tags }));
   };
 
-  const handleImagesChange = (images) => {
-    setFormData(prev => ({
-      ...prev,
-      images
-    }));
+  // File upload handler - opens file explorer
+  const handleImageSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (JPG, PNG, GIF, or WebP)');
+      return;
+    }
+    
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image must be less than 5MB');
+      return;
+    }
+    
+    const uploadData = new FormData();
+    uploadData.append('image', file);
+    
+    setUploading(true);
+    try {
+      const response = await API.post('/admin/upload', uploadData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      if (response.data.success) {
+        setFormData(prev => ({ ...prev, image: response.data.imageUrl }));
+        alert('Image uploaded successfully!');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+      // Clear file input
+      e.target.value = '';
+    }
   };
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
-    }
-    if (!formData.sku.trim()) {
-      newErrors.sku = 'SKU is required';
-    }
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required';
-    }
-    if (!formData.price) {
-      newErrors.price = 'Price is required';
-    } else if (formData.price < 0) {
-      newErrors.price = 'Price cannot be negative';
-    }
-    if (formData.comparePrice && formData.comparePrice < 0) {
-      newErrors.comparePrice = 'Compare price cannot be negative';
-    }
-    if (!formData.quantity && formData.quantity !== 0) {
-      newErrors.quantity = 'Quantity is required';
-    } else if (formData.quantity < 0) {
-      newErrors.quantity = 'Quantity cannot be negative';
-    }
-    if (!formData.category) {
-      newErrors.category = 'Category is required';
-    }
-
+    if (!formData.name.trim()) newErrors.name = 'Product name is required';
+    if (!formData.sku.trim()) newErrors.sku = 'SKU is required';
+    if (!formData.description.trim()) newErrors.description = 'Description is required';
+    if (!formData.price) newErrors.price = 'Price is required';
+    if (!formData.quantity && formData.quantity !== 0) newErrors.quantity = 'Quantity is required';
+    if (!formData.category) newErrors.category = 'Category is required';
     return newErrors;
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-
     onSubmit(formData);
   };
 
@@ -125,6 +129,7 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
       <form onSubmit={handleSubmit} className="product-form">
         <div className="form-grid">
           <div className="form-left">
+            {/* Basic fields remain the same */}
             <div className="form-group">
               <label htmlFor="name">Product Name *</label>
               <input
@@ -150,6 +155,8 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
               />
               {errors.sku && <span className="error-message">{errors.sku}</span>}
             </div>
+
+            <div style={{ background: 'red', color: 'white', padding: '5px' }}>NEW VERSION LOADED</div>
 
             <div className="form-group">
               <label htmlFor="description">Description *</label>
@@ -190,9 +197,7 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
                   min="0"
                   value={formData.comparePrice}
                   onChange={handleChange}
-                  className={errors.comparePrice ? 'error' : ''}
                 />
-                {errors.comparePrice && <span className="error-message">{errors.comparePrice}</span>}
               </div>
             </div>
 
@@ -221,8 +226,8 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
                   className={errors.category ? 'error' : ''}
                 >
                   <option value="">Select Category</option>
-                  {categories.map(cat => (
-                    <option key={cat._id} value={cat._id}>
+                  {categories && categories.map(cat => (
+                    <option key={cat._id || cat.id} value={cat._id || cat.id}>
                       {cat.name}
                     </option>
                   ))}
@@ -279,11 +284,46 @@ const ProductForm = ({ product, categories, onSubmit, loading }) => {
 
           <div className="form-right">
             <div className="form-group">
-              <label>Product Images</label>
-              <ImageUpload
-                images={formData.images}
-                onImagesChange={handleImagesChange}
+              <label>Product Image</label>
+              
+              {/* Hidden file input - triggers file explorer */}
+              <input
+                type="file"
+                id="imageFileInput"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleImageSelect}
+                style={{ display: 'none' }}
               />
+              
+              {/* Upload Button - Clicking this opens file explorer */}
+              <button
+                type="button"
+                onClick={() => document.getElementById('imageFileInput').click()}
+                className="upload-btn"
+                disabled={uploading}
+              >
+                {uploading ? '📤 Uploading...' : '📁 Select Image from Computer'}
+              </button>
+              
+              {/* Image preview after upload */}
+              {formData.image && (
+                <div className="image-preview">
+                  <img src={formData.image} alt="Product preview" />
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, image: '' }))}
+                    className="remove-image-btn"
+                    title="Remove image"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              <small className="upload-hint">
+                Click the button above to select an image from your computer.<br />
+                Supported formats: JPG, PNG, GIF, WebP (Max 5MB)
+              </small>
             </div>
           </div>
         </div>

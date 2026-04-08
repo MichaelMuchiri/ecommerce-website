@@ -1,66 +1,43 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import Rating from '../common/Rating';
-import './ProductCard.css';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
+import './ProductCard.css';
 
 const ProductCard = ({ product }) => {
-  const { _id, name, price, images, ratings, slug, discountPercentage } = product;
   const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
 
-    const handleAddToCart = (e) => {
-    e.preventDefault(); // Prevent navigation
-    addToCart(product, 1);
+  const handleAddToCart = async (e) => {
+    e.preventDefault();
+    if (!isAuthenticated) {
+      alert('Please login to add items to cart');
+      return;
+    }
+    try {
+      await addToCart(product.id, 1);
+      alert(`${product.name} added to cart!`);
+    } catch (error) {
+      alert('Failed to add to cart. Please try again.');
+    }
   };
-  // Get primary image or first image
-  const primaryImage = images?.find(img => img.isPrimary) || images?.[0];
-  const imageUrl = primaryImage?.url || '/images/placeholder.jpg';
+
+  const imageUrl = product.image || 'https://via.placeholder.com/300';
 
   return (
     <div className="product-card">
-      <Link to={`/product/${slug || _id}`} className="product-link">
-        <div className="product-image-container">
-          <img 
-            src={imageUrl} 
-            alt={name} 
-            className="product-image"
-            loading="lazy"
-          />
-          {discountPercentage > 0 && (
-            <span className="discount-badge">-{discountPercentage}%</span>
-          )}
+      <Link to={`/product/${product.id}`} className="product-link">
+        <div className="product-image">
+          <img src={imageUrl} alt={product.name} />
         </div>
-        
         <div className="product-info">
-          <h3 className="product-name">{name}</h3>
-          
-          <div className="product-rating">
-            <Rating value={ratings?.average || 0} />
-            <span className="rating-count">({ratings?.count || 0})</span>
-          </div>
-          
-          <div className="product-price">
-            {discountPercentage > 0 ? (
-              <>
-                <span className="original-price">
-                  ${product.comparePrice?.toFixed(2)}
-                </span>
-                <span className="sale-price">${price?.toFixed(2)}</span>
-              </>
-            ) : (
-              <span className="regular-price">${price?.toFixed(2)}</span>
-            )}
-          </div>
+          <h3 className="product-name">{product.name}</h3>
+          <p className="product-price">${product.price?.toFixed(2)}</p>
         </div>
       </Link>
-      
-      <button 
-    onClick={handleAddToCart} 
-    className="add-to-cart-btn"
-    disabled={product.quantity === 0}
-  >
-    {product.quantity === 0 ? 'Out of Stock' : 'Add to Cart'}
-  </button>
+      <button onClick={handleAddToCart} className="add-to-cart-btn">
+        Add to Cart
+      </button>
     </div>
   );
 };

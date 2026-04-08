@@ -47,7 +47,6 @@ function App() {
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout/*" element={<CheckoutPage />} />
                 <Route path="/order-success/:id" element={<OrderSuccessPage />} />
-
                 {/* Protected Routes */}
                 <Route element={<PrivateRoute />}>
                   <Route path="/dashboard" element={<UserDashboard />} />

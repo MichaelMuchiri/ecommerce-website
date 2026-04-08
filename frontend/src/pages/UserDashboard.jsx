@@ -1,51 +1,61 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import Input from '../components/common/Input';
-import Loader from '../components/common/Loader';
-import { validateEmail, validatePhone } from '../utils/validators';
+import API from '../services/api';
 import './UserDashboard.css';
 
 const UserDashboard = () => {
-  const { user, updateProfile, loading } = useAuth();
+  const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
+  const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
-    address: {
-      street: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: ''
-    }
+    address: { street: '', city: '', zipCode: '', country: '' }
   });
   const [errors, setErrors] = useState({});
 
+  // Fetch profile data on load
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        address: user.address || {
-          street: '',
-          city: '',
-          state: '',
-          zipCode: '',
-          country: ''
-        }
-      });
+    fetchProfile();
+    fetchOrders();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await API.get('/auth/profile');
+      if (response.data.success) {
+        const data = response.data.data;
+        setProfileData({
+          name: data.name || '',
+          email: data.email || '',
+          phone: data.phone || '',
+          address: data.address || { street: '', city: '', zipCode: '', country: '' }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
     }
-  }, [user]);
+  };
+
+  const fetchOrders = async () => {
+    try {
+      const response = await API.get('/orders/myorders');
+      setOrders(response.data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Handle nested address fields
     if (name.startsWith('address.')) {
       const addressField = name.split('.')[1];
-      setFormData(prev => ({
+      setProfileData(prev => ({
         ...prev,
         address: {
           ...prev.address,
@@ -53,233 +63,282 @@ const UserDashboard = () => {
         }
       }));
     } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
+      setProfileData(prev => ({ ...prev, [name]: value }));
     }
-
-    // Clear error for this field
+    
     if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.name) {
-      newErrors.name = 'Name is required';
-    }
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!validateEmail(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-
-    if (formData.phone && !validatePhone(formData.phone)) {
-      newErrors.phone = 'Please enter a valid 10-digit phone number';
-    }
-
+    if (!profileData.name) newErrors.name = 'Name is required';
     return newErrors;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSaveProfile = async () => {
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
 
+    setLoading(true);
     try {
-      await updateProfile(formData);
-      setIsEditing(false);
+      const response = await API.put('/auth/profile', {
+        name: profileData.name,
+        phone: profileData.phone,
+        address: profileData.address
+      });
+      
+      if (response.data.success) {
+        setIsEditing(false);
+        alert('Profile updated successfully!');
+        await fetchProfile();
+      }
     } catch (error) {
-      // Error handled by context
+      alert(error.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return <Loader />;
-  }
+  const formatAddressDisplay = (address) => {
+    if (!address) return 'No address provided';
+    
+    let addressObj = address;
+    if (typeof address === 'string') {
+      try {
+        addressObj = JSON.parse(address);
+      } catch {
+        return address;
+      }
+    }
+    
+    const parts = [];
+    if (addressObj.street) parts.push(addressObj.street);
+    if (addressObj.city) parts.push(addressObj.city);
+    if (addressObj.zipCode) parts.push(addressObj.zipCode);
+    if (addressObj.country) parts.push(addressObj.country);
+    
+    return parts.length > 0 ? parts.join(', ') : 'No address provided';
+  };
+
+  const getPhoneDisplay = () => {
+    return profileData.phone || 'Not provided';
+  };
+
+  const getAddressDisplay = () => {
+    if (isEditing) {
+      return (
+        <div className="edit-address-form">
+          <div className="form-group">
+            <label>Street Address</label>
+            <input
+              type="text"
+              name="address.street"
+              value={profileData.address?.street || ''}
+              onChange={handleChange}
+              placeholder="Street address"
+            />
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>City</label>
+              <input
+                type="text"
+                name="address.city"
+                value={profileData.address?.city || ''}
+                onChange={handleChange}
+                placeholder="City"
+              />
+            </div>
+            <div className="form-group">
+              <label>ZIP Code</label>
+              <input
+                type="text"
+                name="address.zipCode"
+                value={profileData.address?.zipCode || ''}
+                onChange={handleChange}
+                placeholder="ZIP Code"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Country</label>
+            <input
+              type="text"
+              name="address.country"
+              value={profileData.address?.country || ''}
+              onChange={handleChange}
+              placeholder="Country"
+            />
+          </div>
+        </div>
+      );
+    }
+    return <p>{formatAddressDisplay(profileData.address)}</p>;
+  };
 
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>My Dashboard</h1>
         {!isEditing && (
-          <button 
-            className="edit-button"
-            onClick={() => setIsEditing(true)}
-          >
+          <button className="edit-button" onClick={() => setIsEditing(true)}>
             Edit Profile
           </button>
         )}
       </div>
 
       <div className="dashboard-grid">
-        <div className="dashboard-sidebar">
-          <div className="user-info-card">
+        {/* Sidebar */}
+        <aside className="dashboard-sidebar">
+          <div className="user-card">
             <div className="user-avatar">
-              {user?.name?.charAt(0).toUpperCase()}
+              {profileData.name?.charAt(0).toUpperCase() || 'U'}
             </div>
-            <h3>{user?.name}</h3>
-            <p className="user-email">{user?.email}</p>
-            <p className="user-role">{user?.role}</p>
+            <h3>{profileData.name || 'User'}</h3>
+            <p>{profileData.email || user?.email}</p>
+            <span className="user-role">{user?.role || 'user'}</span>
           </div>
 
           <div className="dashboard-menu">
-            <button className="menu-item active">Profile</button>
-            <button className="menu-item">Orders</button>
-            <button className="menu-item">Wishlist</button>
-            <button className="menu-item">Addresses</button>
-            <button className="menu-item">Settings</button>
+            <button 
+              className={`menu-item ${activeTab === 'profile' ? 'active' : ''}`}
+              onClick={() => setActiveTab('profile')}
+            >
+              <i className="fas fa-user"></i> Profile
+            </button>
+            <button 
+              className={`menu-item ${activeTab === 'orders' ? 'active' : ''}`}
+              onClick={() => setActiveTab('orders')}
+            >
+              <i className="fas fa-shopping-bag"></i> Orders
+            </button>
+            <button 
+              className="menu-item"
+              onClick={logout}
+            >
+              <i className="fas fa-sign-out-alt"></i> Logout
+            </button>
           </div>
-        </div>
+        </aside>
 
+        {/* Main Content */}
         <div className="dashboard-content">
-          <div className="profile-section">
-            <h2>Profile Information</h2>
-            
-            {isEditing ? (
-              <form onSubmit={handleSubmit} className="profile-form">
-                <div className="form-row">
-                  <Input
-                    label="Full Name"
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    error={errors.name}
-                    required
-                  />
-                </div>
+          {activeTab === 'profile' && (
+            <div>
+              <h2 className="content-title">Profile Information</h2>
+              
+              {isEditing ? (
+                <div className="profile-form">
+                  <div className="form-group">
+                    <label>Full Name</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={profileData.name}
+                      onChange={handleChange}
+                      className={errors.name ? 'error' : ''}
+                    />
+                    {errors.name && <span className="error-text">{errors.name}</span>}
+                  </div>
 
-                <div className="form-row">
-                  <Input
-                    label="Email"
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    error={errors.email}
-                    required
-                  />
-                </div>
+                  <div className="form-group">
+                    <label>Email</label>
+                    <input 
+                      type="email" 
+                      value={profileData.email} 
+                      disabled 
+                      className="disabled-input"
+                    />
+                    <small className="help-text">Email cannot be changed</small>
+                  </div>
 
-                <div className="form-row">
-                  <Input
-                    label="Phone"
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleChange}
-                    error={errors.phone}
-                    placeholder="10-digit phone number"
-                  />
-                </div>
+                  <div className="form-group">
+                    <label>Phone Number</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={profileData.phone || ''}
+                      onChange={handleChange}
+                      placeholder="Enter your phone number"
+                    />
+                  </div>
 
-                <h3>Address</h3>
-                
-                <div className="form-row">
-                  <Input
-                    label="Street Address"
-                    type="text"
-                    name="address.street"
-                    value={formData.address.street}
-                    onChange={handleChange}
-                  />
-                </div>
+                  <h3>Shipping Address</h3>
+                  {getAddressDisplay()}
 
-                <div className="form-row grid-2">
-                  <Input
-                    label="City"
-                    type="text"
-                    name="address.city"
-                    value={formData.address.city}
-                    onChange={handleChange}
-                  />
-                  <Input
-                    label="State"
-                    type="text"
-                    name="address.state"
-                    value={formData.address.state}
-                    onChange={handleChange}
-                  />
+                  <div className="form-actions">
+                    <button onClick={handleSaveProfile} className="save-btn" disabled={loading}>
+                      {loading ? 'Saving...' : 'Save Changes'}
+                    </button>
+                    <button onClick={() => setIsEditing(false)} className="cancel-btn">
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-
-                <div className="form-row grid-2">
-                  <Input
-                    label="ZIP Code"
-                    type="text"
-                    name="address.zipCode"
-                    value={formData.address.zipCode}
-                    onChange={handleChange}
-                  />
-                  <Input
-                    label="Country"
-                    type="text"
-                    name="address.country"
-                    value={formData.address.country}
-                    onChange={handleChange}
-                  />
+              ) : (
+                <div className="profile-info">
+                  <div className="info-row">
+                    <span className="label">Full Name:</span>
+                    <span className="value">{profileData.name || 'Not provided'}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Email:</span>
+                    <span className="value">{profileData.email || user?.email}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Phone:</span>
+                    <span className="value">{getPhoneDisplay()}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="label">Address:</span>
+                    <span className="value">{formatAddressDisplay(profileData.address)}</span>
+                  </div>
                 </div>
-
-                <div className="form-actions">
-                  <button type="submit" className="save-button">
-                    Save Changes
-                  </button>
-                  <button 
-                    type="button" 
-                    className="cancel-button"
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <div className="profile-info">
-                <div className="info-group">
-                  <label>Name:</label>
-                  <p>{user?.name}</p>
-                </div>
-                <div className="info-group">
-                  <label>Email:</label>
-                  <p>{user?.email}</p>
-                </div>
-                <div className="info-group">
-                  <label>Phone:</label>
-                  <p>{user?.phone || 'Not provided'}</p>
-                </div>
-                <div className="info-group">
-                  <label>Address:</label>
-                  {user?.address ? (
-                    <p>
-                      {user.address.street}, {user.address.city},<br />
-                      {user.address.state} {user.address.zipCode},<br />
-                      {user.address.country}
-                    </p>
-                  ) : (
-                    <p>No address provided</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="recent-orders">
-            <h2>Recent Orders</h2>
-            <div className="orders-list">
-              <p className="no-orders">No orders yet</p>
+              )}
             </div>
-          </div>
+          )}
+
+          {activeTab === 'orders' && (
+            <div>
+              <h2 className="content-title">My Orders</h2>
+              {orders.length === 0 ? (
+                <div className="no-orders">
+                  <p>You haven't placed any orders yet.</p>
+                  <Link to="/shop" className="shop-now-link">Start Shopping</Link>
+                </div>
+              ) : (
+                <table className="orders-table">
+                  <thead>
+                    <tr>
+                      <th>Order ID</th>
+                      <th>Date</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map(order => (
+                      <tr key={order.id}>
+                        <td>#{order.id}</td>
+                        <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                        <td>${order.total?.toFixed(2)}</td>
+                        <td>
+                          <span className={`status-${order.status}`}>
+                            {order.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
